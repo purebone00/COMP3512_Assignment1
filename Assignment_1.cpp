@@ -3,80 +3,83 @@
 #include <vector>
 #include <stack>
 #include <sstream>
-
 using namespace std;
 
-struct Chunk {
-  string keyWord;
-  string word;
-};
-
-void divideString(istringstream& iss, vector<Chunk>& v);
-string addSpace(string& s);
+string printKeyword(const string& s);
+string divideString(string& s);
 
 int main() {
-  string sampleText = "(     normal ((Read)) these instructions (   color(brown) carefully). This is a closed-book exam. There are 6 questions with a total of 25 marks. Answer (bold all) questions. Time allowed: (underline 80 minutes).)";
-  //string sampleText = "(normal this (bold is a (italic short)simple) test)";
+  //string sampleText = "(normal ((Read)) these instructions (color(brown) carefully). This is a closed-book exam. There are 6 questions with a total of 25 marks. Answer (bold all) questions. Time allowed: (underline 80 minutes).)";
+  string sampleText = "(normal    this (bold     is a(italic short)simple) test)";
+  //string sampleText = "( normal abc(())def((ghi(italic ((BLUE)))Grey) ";
+  //string sampleText = "(underline this (()) is a (((((bold very)) complicated) example)";
 
-  sampleText = addSpace(sampleText);
+  string printedString = divideString(sampleText);
 
-  cout << sampleText << endl;
+  cout << printedString;
 
-  vector<Chunk> v;
-
-  istringstream iss(sampleText);
-
-  divideString(iss, v);
-
-  for (Chunk c : v) {
-    cout << c.keyWord << '\t' << c.word << endl;
-  }
 }
 
-string addSpace(string& s) {
-  string stringWithSpaces;
+string divideString(string& s) {
+  string newString;
+  stack<string> keywords;
   for (auto it = s.begin() ; it != s.end() ; ++it) {
-
-    if (*it == ')') {
-      stringWithSpaces += *it;
-      stringWithSpaces += " ";
-    } else {
-      stringWithSpaces += *it;
-    }
-  }
-  return stringWithSpaces;
-}
-
-
-void divideString(istringstream& iss, vector<Chunk>& v) {
-  stack<string>  keywords;
-  string word;
-  while (iss >> word) {
-    if (word[0] == '(') {
-      if (word.size() != 1) {
-        keywords.push(word.substr(1,word.size()));
+    if (*it == '(') {
+      //escape case
+      if (*++it == '(') {
+        newString += '(';
+        ++it;
       } else {
-        iss >> word;
-        keywords.push(word);
+        string newKeyword;
+        //skip whitespace
+        while (isspace(*it))
+          ++it;
+
+        //reads the keyword
+        while (!isspace(*it)) {
+          newKeyword += *it++;
+        }
+
+        cout << newKeyword <<endl;
+        //throws it onto the stack
+        keywords.push(newKeyword);
+        //prints the code to change
+        newString += printKeyword(keywords.top());
+        //skip whitespace
+        while (isspace(*it))
+          ++it;
+        newString += *it;
       }
-    } else if (word.back() == ')') {
-      Chunk newChunk;
-      newChunk.keyWord = keywords.top();
-      newChunk.word = word.substr(0, word.size() - 1);
-      v.push_back(newChunk);
+    } else if (*it == ')') {
+      if (++it == s.end()) {
+        break;
+      }
+      //escape case
+      if (*it == ')') {
+        newString += ')';
+        it++;
+        continue;
+      }
       keywords.pop();
+      newString += printKeyword(keywords.top());
+      newString += *it;
     } else {
-      Chunk newChunk;
-      newChunk.keyWord = keywords.top();
-      newChunk.word = word;
-      v.push_back(newChunk);
+      newString += *it;
     }
   }
+  return newString;
 }
 
-
-/*
-void findingKeyword() {
-
+string printKeyword(const string& s) {
+  if (s == "normal") {
+    return "1";
+  } else if (s == "italic") {
+    return "3";
+  } else if (s == "bold") {
+    return "5";
+  } else if (s == "underline") {
+    return "8";
+  } else {
+    return "0";
+  }
 }
-*/
