@@ -26,7 +26,7 @@ ostream& operator<<(ostream& os, const string& s) {
 int main() {
   //string sampleText = "(normal ((Read)) these instructions (color(brown) carefully). This is a closed-book exam. There are 6 questions with a total of 25 marks. Answer (bold all) questions. Time allowed: (underline 80 minutes).)";
   //string sampleText = "(normal    this (bold     is a(italic short)simple) test)";
-  string sampleText = "( normal abc(())def((ghi(italic ((BLUE)))Grey) ";
+  string sampleText = "( normal abc(())def((ghi(italic ((BLUE)))Grey)    ";
   //string sampleText = "(underline this (()) is a (((((bold very)) complicated) example)";
   //string sampleText = "(normal this (bold is a(italic short \n)simple) test)";
 
@@ -51,7 +51,6 @@ string removeDoubleBrace(string& s) {
         --it;
       }
     } else if (*it == ')') {
-
       if (++it == s.end()) {
         break;
       }
@@ -92,12 +91,11 @@ string divideString(string& s) {
         ++it;
       --it;
     } else if (*it == ')') {
-      if (++it == s.end()) {
-        break;
-      }
       keywords.pop();
+      if (keywords.empty()) {
+          break;
+      }
       newString += printKeyword(keywords.top());
-      newString += *it;
     } else {
       newString += *it;
     }
