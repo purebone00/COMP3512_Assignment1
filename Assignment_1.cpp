@@ -7,9 +7,13 @@
 #include <cstdio>
 using namespace std;
 
+#ifdef DEFAULT_MODE
+#define  DISPLAY
+#endif
+
 map<string, string> createKeywordList(ifstream& config);
 void fixKey(string& key);
-string removeDoubleBrace(string& s);
+void removeDoubleBrace(string& s);
 string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords, bool& readingKeyword);
 string printKeyword(const string& s, map<string, string>& keywordsList);
 void fixValue(string& value);
@@ -52,13 +56,26 @@ int main(int argc, char const *argv[]) {
   map <string, string> keywordsList = createKeywordList(config);
   stack<string> keywords;
   string sampleText;
+
+  #ifndef DISPLAY
+
   bool  readingKeyword = false;
 
   while (getline(cin, sampleText)) {
     sampleText += '\n';
-    sampleText = removeDoubleBrace(sampleText);
+    removeDoubleBrace(sampleText);
     cout << divideString(sampleText, keywordsList, keywords, readingKeyword);
   }
+
+  #else
+
+  for (auto it = keywordsList.begin() ; it != keywordsList.end() ; ++it) {
+    cout << it->second << '(' << it->first << ')' << DEFAULT_MODE << endl;
+  }
+
+  #endif
+
+
 }
 
 map<string, string> createKeywordList(ifstream& config) {
@@ -67,7 +84,6 @@ map<string, string> createKeywordList(ifstream& config) {
   while (getline(config, line)) {
     istringstream iss(line);
     string key, escapeValue;
-
     if((iss >> key >> escapeValue)) {
       fixKey(key);
       fixValue(escapeValue);
@@ -89,38 +105,30 @@ void fixKey(string& key) {
 
 void fixValue(string& value) {
   string fixedCommand = "\033";
-  for (auto it = value.begin() + 2 ; it != value.end() ; ++it) {
-    fixedCommand += *it;
+  size_t offset = value.find("[");
+  if (offset != string::npos) {
+    for (auto it = value.begin() + offset; it != value.end() ; ++it) {
+      fixedCommand += *it;
+    }
+    value = fixedCommand;
   }
-  value = fixedCommand;
 }
 
-string removeDoubleBrace(string& s) {
+void removeDoubleBrace(string& s) {
   string newString;
   for (auto it = s.begin() ; it != s.end() ; ++it) {
     if (*it == '(') {
-      if (*++it == '(') {
-        newString += '\001';
-      } else {
-        newString += '(';
-        --it;
-      }
+      newString += (*++it == '(') ? '\001' : (--it ,'(');
     } else if (*it == ')') {
       if (++it == s.end()) {
         break;
       }
-
-      if (*it == ')') {
-        newString += '\002';
-      } else {
-        newString += ')';
-        --it;
-      }
+      newString += (*it == ')') ? '\002' : (--it ,')');
     } else {
       newString += *it;
     }
   }
-  return newString;
+  s = newString;
 }
 
 string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords, bool& readingKeyword) {
