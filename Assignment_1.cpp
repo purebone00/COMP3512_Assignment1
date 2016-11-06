@@ -1,3 +1,12 @@
+/**
+ * A program that has a specified configuration file
+ * on how to print out inputed text. All adjustments
+ * are denoted with left or right parentheses as delimiters
+ * except for double left or double right parenthesis.
+ *
+ * @author Albert Fong-Chiaw Chen
+ * @date   5/11/2016
+ */
 #include <iostream>
 #include <string>
 #include <stack>
@@ -7,17 +16,21 @@
 #include <cstdio>
 using namespace std;
 
-#ifdef DEFAULT_MODE
-#define  DISPLAY
+#ifndef DEFAULT_MODE
+#define DEFAULT_MODE "\033[0;37m"
 #endif
 
 map<string, string> createKeywordList(ifstream& config);
 void fixKey(string& key);
 void removeDoubleBrace(string& s);
-string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords, bool& readingKeyword);
+string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords, bool& readingKeyword, int& errorType);
 string printKeyword(const string& s, map<string, string>& keywordsList);
 void fixValue(string& value);
+void printError(int line, int errorType);
 
+/**
+ * Overloaded << operator that prints out our non-printable characters.
+ */
 ostream& operator<<(ostream& os, const string& s) {
   for (auto it = s.begin() ; it != s.end() ; ++it) {
     if (*it == '\001') {
@@ -31,53 +44,85 @@ ostream& operator<<(ostream& os, const string& s) {
   return os;
 }
 
+/**
+ * Main method.
+ */
 int main(int argc, char const *argv[]) {
-
+  //fileName
   string fileName;
 
+  //checks for correct number of arguements
   if (argc > 2) {
     cerr << "Usage: {configuration file}";
     return 1;
   }
 
+  //sets the appropriate fileName if specified
   if (argc == 1) {
     fileName = "config";
   } else if (argc == 2) {
     fileName = argv[1];
   }
 
+  //opens the file.
   ifstream config(fileName);
 
+  //Incase of failure to open file
   if (!config) {
     cerr << "unable to open file: " << fileName<< endl;
     return 1;
   }
 
+  //map of keywords and their associated escapeValues
   map <string, string> keywordsList = createKeywordList(config);
+  //stack of keywords currently being used
   stack<string> keywords;
-  string sampleText;
+  //user Input
+  string inputText;
 
-  #ifndef DISPLAY
+  //DEBUG_MODE
+  #ifndef DEBUG
 
   bool  readingKeyword = false;
 
-  while (getline(cin, sampleText)) {
-    sampleText += '\n';
-    removeDoubleBrace(sampleText);
-    cout << divideString(sampleText, keywordsList, keywords, readingKeyword);
+  int   errorType = 0;
+
+  int line = 0;
+
+  //Recieves user input and prints out with specified configurations
+  while (getline(cin, inputText) && (errorType == 0)) {
+    line++;
+    inputText += '\n';
+    if (line == 1 && (*(inputText.begin()) != '(' )) {
+      errorType = 4;
+      break;
+    }
+    removeDoubleBrace(inputText);
+    cout << divideString(inputText, keywordsList, keywords, readingKeyword, errorType);
   }
+
+  if (errorType == 0 && !keywords.empty()) {
+    errorType = 2;
+  }
+
+  if (errorType != 0)
+    printError(line, errorType);
 
   #else
 
+  //Displays the configurations
   for (auto it = keywordsList.begin() ; it != keywordsList.end() ; ++it) {
     cout << it->second << '(' << it->first << ')' << DEFAULT_MODE << endl;
   }
 
   #endif
-
-
 }
 
+/**
+ * Creates a map of keywords and their associated escape characters.
+ * @param config configuration file
+ * @return map of keywords
+ */
 map<string, string> createKeywordList(ifstream& config) {
   string line;
   map<string, string> keywords;
@@ -93,6 +138,10 @@ map<string, string> createKeywordList(ifstream& config) {
   return keywords;
 }
 
+/**
+ * Adjusts the keys paraentheses to be non-printable characters.
+ * @param key
+ */
 void fixKey(string& key) {
   for (auto it = key.begin() ; it != key.end() ; ++it) {
     if (*it == '(') {
@@ -103,6 +152,10 @@ void fixKey(string& key) {
   }
 }
 
+/**
+ * Corrects the configuration file values to be accepted by standard convention.
+ * @param value that needs to be fixed
+ */
 void fixValue(string& value) {
   string fixedCommand = "\033";
   size_t offset = value.find("[");
@@ -114,6 +167,11 @@ void fixValue(string& value) {
   }
 }
 
+/**
+ * Removes all instances of double parentheses and
+ * replaces them with non-printable characters.
+ * @param s the input string
+ */
 void removeDoubleBrace(string& s) {
   string newString;
   for (auto it = s.begin() ; it != s.end() ; ++it) {
@@ -131,13 +189,23 @@ void removeDoubleBrace(string& s) {
   s = newString;
 }
 
-string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords, bool& readingKeyword) {
+/**
+ * Converts our input into a string that is to be printed.
+ * @param s input string.
+ * @param keywordsList list of keywords from config file.
+ * @param keywords the stack of current keywords.
+ * @param readingKeyword boolean for if we are currently searching for a keyword
+ */
+string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords, bool& readingKeyword, int& errorType) {
   string newString;
   for (auto it = s.begin() ; it != s.end() ; ++it) {
+    //Case for hitting the left delimiter
     if (*it == '(' || readingKeyword) {
+      //The key word associated with this delimiter
       string newKeyword;
 
       if (!readingKeyword) {
+        //checks if keyword is on the next line
         if (*++it == '\n') {
           readingKeyword = true;
           newString += '\n';
@@ -154,6 +222,11 @@ string divideString(string& s, map<string, string>& keywordsList, stack<string>&
         newKeyword += *it++;
       }
 
+      if (newKeyword[0] == ')') {
+        errorType = 3;
+        return newString;
+      }
+
       readingKeyword = false;
       //throws it onto the stack
       keywords.push(newKeyword);
@@ -163,23 +236,65 @@ string divideString(string& s, map<string, string>& keywordsList, stack<string>&
       if (isspace(*it)) {
         while (isspace(*++it)) {}
       }
+      //short circuits to next line
       if (*it == '\n') {
         return newString;
       }
       --it;
     } else if (*it == ')') {
-      keywords.pop();
-      if (keywords.empty()) {
-          break;
+      if (!keywords.empty()) {
+        keywords.pop();
+        if (!keywords.empty()) {
+          newString += printKeyword(keywords.top(), keywordsList);
+        }
+      } else {
+        errorType = 1;
+        return newString;
       }
-      newString += printKeyword(keywords.top(), keywordsList);
     } else {
-      newString += *it;
+      if (!keywords.empty()) {
+        newString += *it;
+      }
     }
   }
   return newString;
 }
 
+/**
+ * Grabs appropriate escape sequence from our keywordsList
+ * @param s current keyword
+ * @param keywordsList map of configurations
+ * @return the escape sequence associated with that keyword
+ */
 string printKeyword(const string& s, map<string, string>& keywordsList) {
+  if (keywordsList.find(s) == keywordsList.end()) {
+    return DEFAULT_MODE;
+  }
   return keywordsList.find(s)->second;
+}
+
+/**
+ * Prints the appropriate error message.
+ * @param line number
+ * @param errorType identification for what type of error
+ */
+void printError(int line, int errorType) {
+  cerr << DEFAULT_MODE << endl;
+  cerr << "Error on line " << line;
+  switch (errorType) {
+    case 1:
+      cerr << ": Extraneous token after end of top-level list" << endl;
+      break;
+    case 2:
+      cerr << ": Unmatched left delimiter" << endl;
+      break;
+    case 3:
+      cerr << ": No command after left delimiter" << endl;
+      break;
+    case 4:
+      cerr << ": Extraneous token before start of top-level list" << endl;
+      break;
+    default:
+      cerr << ": Undefined Error" << endl;
+  }
 }
