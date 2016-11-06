@@ -2,13 +2,18 @@
 #include <string>
 #include <vector>
 #include <stack>
+#include <fstream>
 #include <sstream>
+#include <map>
 #include <cstdio>
 using namespace std;
 
-string printKeyword(const string& s);
-string divideString(string& s);
+map<string, string> createKeywordList(ifstream& config);
+void fixKey(string& key);
 string removeDoubleBrace(string& s);
+string divideString(string& s, map<string, string>& keywordsList);
+string printKeyword(const string& s, map<string, string>& keywordsList);
+void fixValue(string& value);
 
 ostream& operator<<(ostream& os, const string& s) {
   for (auto it = s.begin() ; it != s.end() ; ++it) {
@@ -23,21 +28,78 @@ ostream& operator<<(ostream& os, const string& s) {
   return os;
 }
 
-int main() {
+int main(int argc, char const *argv[]) {
+
+  string fileName;
+
+  if (argc > 2) {
+    cerr << "Usage: {configuration file}";
+    return 1;
+  }
+
+  if (argc == 1) {
+    fileName = "config";
+  } else if (argc == 2) {
+    fileName = argv[1];
+  }
+
+  ifstream config(fileName);
+
+  if (!config) {
+    cerr << "unable to open file: " << fileName<< endl;
+    return 1;
+  }
+
   //string sampleText = "(normal ((Read)) these instructions (color(brown) carefully). This is a closed-book exam. There are 6 questions with a total of 25 marks. Answer (bold all) questions. Time allowed: (underline 80 minutes).)";
   //string sampleText = "(normal    this (bold     is a(italic short)simple) test)";
-  string sampleText = "( normal abc(())def((ghi(italic ((BLUE)))Grey)    ";
+  //string sampleText = "( normal abc(())def((ghi(italic ((BLUE)))Grey)    ";
   //string sampleText = "(underline this (()) is a (((((bold very)) complicated) example)";
-  //string sampleText = "(normal this (bold is a(italic short \n)simple) test)";
+  //string sampleText = "(normal this (bold is a(italic short )simple) test)";
+  map <string, string> keywordsList = createKeywordList(config);
 
-  sampleText = removeDoubleBrace(sampleText);
+  string sampleText;
 
-  cout << sampleText << endl;
+  while (getline(cin, sampleText)) {
 
-  string printedString = divideString(sampleText);
+    sampleText = removeDoubleBrace(sampleText);
+    cout << divideString(sampleText, keywordsList);
+  }
 
-  cout << printedString;
 
+}
+
+map<string, string> createKeywordList(ifstream& config) {
+  string line;
+  map<string, string> keywords;
+  while (getline(config, line)) {
+    istringstream iss(line);
+    string key, escapeValue;
+
+    if((iss >> key >> escapeValue)) {
+      fixKey(key);
+      fixValue(escapeValue);
+      keywords.insert(pair<string, string>(key, escapeValue));
+    }
+  }
+  return keywords;
+}
+
+void fixKey(string& key) {
+  for (auto it = key.begin() ; it != key.end() ; ++it) {
+    if (*it == '(') {
+      *it = '\001';
+    } else if (*it == ')') {
+      *it = '\002';
+    }
+  }
+}
+
+void fixValue(string& value) {
+  string fixedCommand = "\033";
+  for (auto it = value.begin() + 2 ; it != value.end() ; ++it) {
+    fixedCommand += *it;
+  }
+  value = fixedCommand;
 }
 
 string removeDoubleBrace(string& s) {
@@ -68,7 +130,7 @@ string removeDoubleBrace(string& s) {
   return newString;
 }
 
-string divideString(string& s) {
+string divideString(string& s, map<string, string>& keywordsList) {
   string newString;
   stack<string> keywords;
   for (auto it = s.begin() ; it != s.end() ; ++it) {
@@ -81,11 +143,10 @@ string divideString(string& s) {
       while (!isspace(*it)) {
         newKeyword += *it++;
       }
-      cout << newKeyword <<endl;
       //throws it onto the stack
       keywords.push(newKeyword);
       //prints the code to change
-      newString += printKeyword(keywords.top());
+      newString += printKeyword(keywords.top(), keywordsList);
       //skip whitespace
       while (isspace(*it))
         ++it;
@@ -95,7 +156,7 @@ string divideString(string& s) {
       if (keywords.empty()) {
           break;
       }
-      newString += printKeyword(keywords.top());
+      newString += printKeyword(keywords.top(), keywordsList);
     } else {
       newString += *it;
     }
@@ -103,16 +164,6 @@ string divideString(string& s) {
   return newString;
 }
 
-string printKeyword(const string& s) {
-  if (s == "normal") {
-    return "\033[0;37m";
-  } else if (s == "italic") {
-    return "\033[0;34m";
-  } else if (s == "bold") {
-    return "\033[0;31m";
-  } else if (s == "underline") {
-    return "\033[0;32m";
-  } else {
-    return "0";
-  }
+string printKeyword(const string& s, map<string, string>& keywordsList) {
+  return keywordsList.find(s)->second;
 }
