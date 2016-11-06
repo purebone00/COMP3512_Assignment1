@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <vector>
 #include <stack>
 #include <fstream>
 #include <sstream>
@@ -11,7 +10,7 @@ using namespace std;
 map<string, string> createKeywordList(ifstream& config);
 void fixKey(string& key);
 string removeDoubleBrace(string& s);
-string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords);
+string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords, bool& readingKeyword);
 string printKeyword(const string& s, map<string, string>& keywordsList);
 void fixValue(string& value);
 
@@ -49,14 +48,16 @@ int main(int argc, char const *argv[]) {
     cerr << "unable to open file: " << fileName<< endl;
     return 1;
   }
+
   map <string, string> keywordsList = createKeywordList(config);
   stack<string> keywords;
   string sampleText;
+  bool  readingKeyword = false;
 
   while (getline(cin, sampleText)) {
     sampleText += '\n';
     sampleText = removeDoubleBrace(sampleText);
-    cout << divideString(sampleText, keywordsList, keywords);
+    cout << divideString(sampleText, keywordsList, keywords, readingKeyword);
   }
 }
 
@@ -122,19 +123,30 @@ string removeDoubleBrace(string& s) {
   return newString;
 }
 
-string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords) {
+string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords, bool& readingKeyword) {
   string newString;
   for (auto it = s.begin() ; it != s.end() ; ++it) {
-    if (*it == '(') {
+    if (*it == '(' || readingKeyword) {
       string newKeyword;
-      //skip whitespace
-      while (isspace(*++it)) {
-        newString += *it;
+
+      if (!readingKeyword) {
+        if (*++it == '\n') {
+          readingKeyword = true;
+          newString += '\n';
+          return newString;
+        }
+        //skip whitespace
+        while (isspace(*it)) {
+          newString += *it++;
+        }
       }
+
       //reads the keyword
       while (!isspace(*it) && (*it != '\n')) {
         newKeyword += *it++;
       }
+
+      readingKeyword = false;
       //throws it onto the stack
       keywords.push(newKeyword);
       //prints the code to change
