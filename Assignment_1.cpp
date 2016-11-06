@@ -11,7 +11,7 @@ using namespace std;
 map<string, string> createKeywordList(ifstream& config);
 void fixKey(string& key);
 string removeDoubleBrace(string& s);
-string divideString(string& s, map<string, string>& keywordsList);
+string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords);
 string printKeyword(const string& s, map<string, string>& keywordsList);
 void fixValue(string& value);
 
@@ -49,23 +49,15 @@ int main(int argc, char const *argv[]) {
     cerr << "unable to open file: " << fileName<< endl;
     return 1;
   }
-
-  //string sampleText = "(normal ((Read)) these instructions (color(brown) carefully). This is a closed-book exam. There are 6 questions with a total of 25 marks. Answer (bold all) questions. Time allowed: (underline 80 minutes).)";
-  //string sampleText = "(normal    this (bold     is a(italic short)simple) test)";
-  //string sampleText = "( normal abc(())def((ghi(italic ((BLUE)))Grey)    ";
-  //string sampleText = "(underline this (()) is a (((((bold very)) complicated) example)";
-  //string sampleText = "(normal this (bold is a(italic short )simple) test)";
   map <string, string> keywordsList = createKeywordList(config);
-
+  stack<string> keywords;
   string sampleText;
 
   while (getline(cin, sampleText)) {
-
+    sampleText += '\n';
     sampleText = removeDoubleBrace(sampleText);
-    cout << divideString(sampleText, keywordsList);
+    cout << divideString(sampleText, keywordsList, keywords);
   }
-
-
 }
 
 map<string, string> createKeywordList(ifstream& config) {
@@ -130,17 +122,17 @@ string removeDoubleBrace(string& s) {
   return newString;
 }
 
-string divideString(string& s, map<string, string>& keywordsList) {
+string divideString(string& s, map<string, string>& keywordsList, stack<string>& keywords) {
   string newString;
-  stack<string> keywords;
   for (auto it = s.begin() ; it != s.end() ; ++it) {
     if (*it == '(') {
       string newKeyword;
       //skip whitespace
-      while (isspace(*++it)) {}
-
+      while (isspace(*++it)) {
+        newString += *it;
+      }
       //reads the keyword
-      while (!isspace(*it)) {
+      while (!isspace(*it) && (*it != '\n')) {
         newKeyword += *it++;
       }
       //throws it onto the stack
@@ -148,8 +140,12 @@ string divideString(string& s, map<string, string>& keywordsList) {
       //prints the code to change
       newString += printKeyword(keywords.top(), keywordsList);
       //skip whitespace
-      while (isspace(*it))
-        ++it;
+      if (isspace(*it)) {
+        while (isspace(*++it)) {}
+      }
+      if (*it == '\n') {
+        return newString;
+      }
       --it;
     } else if (*it == ')') {
       keywords.pop();
